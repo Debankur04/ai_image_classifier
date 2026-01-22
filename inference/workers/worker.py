@@ -1,19 +1,10 @@
-# workflow
-# 1- get data from redis
-# 2- take manifest from bucket
-# 3- start a result list
-# 4- convert and process image using image_prep.py
-# 5- if images = 2 make a batch and make prediction using prediction.py append in result
-# 6- if image = 1 make a batch and make pred using prediction.py append in result
-# 7- create pdf using result in pdf_creator.py
-# 8- delete all images in the bucket then add the pdf in result and get the link
-# 9- put the link in email.py
-
+import json
+import time
 from redis import Redis
 from workers import email, image_prep, pdf_creator, prediction
 from supabase.supabase_init import supabase
-import json
 
+# ---------------- Redis ----------------
 r = Redis(
     host="localhost",
     port=6379,
@@ -23,45 +14,97 @@ r = Redis(
 
 QUEUE_NAME = "task_queue"
 
+print("Worker started...")
+
 while True:
     task_data = r.blpop(QUEUE_NAME, timeout=0)
-    if task_data:
 
-        { "job_id": "b7f1c0b2-9e4f-4a9d-9d6f-8a2a9f71c123", 
-        "user_id": "u_123456", 
-        "user_email": "user@example.com", 
-        "bucket": "user-uploads", 
-        "input_prefix": "users/u_123456/jobs/b7f1c0b2/input/", 
-        "manifest_path": "users/u_123456/jobs/b7f1c0b2/manifest.json", 
-        "report_prefix": "users/u_123456/jobs/b7f1c0b2/report/" }
+    if not task_data:
+        continue
 
-        bucket = task_data['bucket']
-        input_prefix = task_data['input_prefix']
-        manifest_path = task_data['manifest_path']
-        results = []
-        batch_images = []
+    _, task_json = task_data
+    task = json.loads(task_json)
 
-        manifest = (
+    print(f"Processing job {task['job_id']}")
+
+    bucket = task["bucket"]
+    input_prefix = task["input_prefix"]
+    manifest_path = task["manifest_path"]
+    report_prefix = task["report_prefix"]
+
+    results = []
+    batch_images = []
+
+    # -------- Load Manifest --------
+    manifest_bytes = (
         supabase.storage
         .from_(bucket)
-        .download(manifest_path))
-        with open(manifest, 'r') as file:
-            data = json.load(file)
-        
-        for relative_path in data['images']:
-            image = image_prep(bucket = bucket, file_path = relative_path)
-            batch_images.append(image)
-            if len(batch_images) == 2:
-                batch_result = prediction.predict_batch(batch_images)
-                results.extend(batch_result)
-                batch_images.clear()
-        if batch_images == 1:
+        .download(manifest_path)
+    )
+
+    manifest = json.loads(manifest_bytes.decode("utf-8"))
+
+    # -------- Process Images --------
+    for relative_path in manifest["images"]:
+        processed_img = image_prep.load_image(
+            bucket=bucket,
+            file_path=relative_path
+        )
+
+        batch_images.append(processed_img)
+
+        if len(batch_images) == 2:
             batch_result = prediction.predict_batch(batch_images)
             results.extend(batch_result)
             batch_images.clear()
-        pdf_creator.create_pdf_report(results= results)
-        response = (
+
+    # Remaining single image
+    if len(batch_images) == 1:
+        batch_result = prediction.predict_batch(batch_images)
+        results.extend(batch_result)
+        batch_images.clear()
+
+    # -------- Create PDF --------
+    pdf_path = pdf_creator.create_pdf_report(
+        results=results,
+        output_path="report.pdf"
+    )
+
+    # -------- Upload PDF --------
+    with open(pdf_path, "rb") as f:
+        supabase.storage.from_(bucket).upload(
+            path=f"{report_prefix}/report.pdf",
+            file=f,
+            file_options={"content-type": "application/pdf"}
+        )
+
+    # -------- Generate Signed URL --------
+    signed_url = (
         supabase.storage
         .from_(bucket)
-        .remove(input_prefix)
+        .create_signed_url(
+            path=f"{report_prefix}/report.pdf",
+            expires_in=3600
         )
+    )["signedURL"]
+
+    # -------- Cleanup Input Files --------
+    files = (
+        supabase.storage
+        .from_(bucket)
+        .list(input_prefix)
+    )
+
+    file_paths = [f"{input_prefix}/{f['name']}" for f in files]
+
+    if file_paths:
+        supabase.storage.from_(bucket).remove(file_paths)
+
+    # -------- Send Email --------
+    email.send_report_email(
+        user_email=task["user_email"],
+        user_id=task["user_id"],
+        report_link=signed_url
+    )
+
+    print(f"Job {task['job_id']} completed ✅")

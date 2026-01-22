@@ -20,15 +20,3 @@ def signin(email,password):
 def signout():
     return sign_out()
 
-
-
-# def reset_pasword(email):
-#     reset_password_for_email(
-#     email,
-#     {
-#         "redirect_to": "https://example.com/update-password",
-#     }
-#     )
-#     response = update_user(
-#         {"password": new_password}
-#     )

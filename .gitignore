@@ -1,10 +1,78 @@
-# Python-generated files
+# ======================
+# Python
+# ======================
 __pycache__/
-*.py[oc]
+*.py[cod]
+*$py.class
+
+# ======================
+# Virtual Environments
+# ======================
+venv/
+.env/
+.env.*
+.venv/
+
+# ======================
+# Environment / Secrets
+# ======================
+*.env
+.env.local
+.env.production
+.env.development
+
+# ======================
+# OS / Editor
+# ======================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# ======================
+# Logs
+# ======================
+*.log
+logs/
+
+# ======================
+# Jupyter
+# ======================
+.ipynb_checkpoints/
+
+# ======================
+# ML / Data
+# ======================
+data/
+datasets/
+*.h5
+*.keras
+*.pt
+*.pth
+*.onnx
+
+# ======================
+# Generated Reports
+# ======================
+reports/
+*.pdf
+
+# ======================
+# Redis / Celery
+# ======================
+dump.rdb
+celerybeat-schedule
+
+# ======================
+# Build / Cache
+# ======================
 build/
 dist/
-wheels/
-*.egg-info
+*.egg-info/
+.eggs/
 
-# Virtual environments
-.venv
+# ======================
+# Docker
+# ======================
+docker-data/

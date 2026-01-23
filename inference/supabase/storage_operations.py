@@ -40,46 +40,65 @@ def upload_images_and_manifest( bucket: str, images: List[Tuple[str, str]], mani
 # ---------------------------------
 # 2. Download files as bytes
 # ---------------------------------
-def download_files_as_bytes( bucket: str, paths: List[str] ) -> Dict[str, bytes]:
-    """
-    Downloads multiple files from Supabase bucket and returns {path: bytes}.
-    """
-    downloaded = {}
+# def download_files_as_bytes( bucket: str, paths: List[str] ) -> Dict[str, bytes]:
+#     """
+#     Downloads multiple files from Supabase bucket and returns {path: bytes}.
+#     """
+#     downloaded = {}
 
-    try:
-        for path in paths:
-            data = supabase.storage.from_(bucket).download(path)
-            if not data:
-                raise ValueError(f"Empty download for {path}")
-            downloaded[path] = data
+#     try:
+#         for path in paths:
+#             data = supabase.storage.from_(bucket).download(path)
+#             if not data:
+#                 raise ValueError(f"Empty download for {path}")
+#             downloaded[path] = data
 
-        return downloaded
+#         return downloaded
 
-    except Exception as e:
-        raise RuntimeError(f"[DOWNLOAD FAILED] {str(e)}") from e
+#     except Exception as e:
+#         raise RuntimeError(f"[DOWNLOAD FAILED] {str(e)}") from e
 
 
 # -------------------------------------------------
-# 3. Delete all images, keep only the report
+# 3.Upload the report, Delete all images, keep only the report
 # -------------------------------------------------
-def delete_images_keep_report( bucket: str, folder_path: str, report_filename: str ) -> None:
+def delete_images_create_report(
+    bucket: str,
+    input_prefix: str,
+    report_prefix: str,
+    report_filename: str
+) -> str:
     """
-    Deletes all files in a folder except the final report.
+    Uploads the final report, deletes all input images,
+    and returns the report path.
     """
     try:
-        files = supabase.storage.from_(bucket).list(folder_path)
+        # 🔹 Upload report FIRST (creates report prefix automatically)
+        with open(report_filename, "rb") as pdf_file:
+            supabase.storage.from_(bucket).upload(
+                path=f"{report_prefix}/{report_filename}",
+                file=pdf_file,
+                file_options={"content-type": "application/pdf"}
+            )
+
+        # 🔹 Delete input images
+        files = supabase.storage.from_(bucket).list(input_prefix)
 
         delete_targets = [
-            f"{folder_path}/{f['name']}"
+            f"{input_prefix}/{f['name']}"
             for f in files
-            if f["name"] != report_filename
         ]
 
         if delete_targets:
             supabase.storage.from_(bucket).remove(delete_targets)
 
+        # ✅ return report path
+        return f"{report_prefix}/{report_filename}"
+
     except Exception as e:
-        raise RuntimeError(f"[DELETE FAILED] {str(e)}") from e
+        raise RuntimeError(f"[DELETE FAILED] {str(e)}")
+
+
 
 
 # ---------------------------------

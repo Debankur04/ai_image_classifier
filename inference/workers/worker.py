@@ -3,6 +3,8 @@ import time
 from redis import Redis
 from workers import email, image_prep, pdf_creator, prediction
 from supabase.supabase_init import supabase
+from supabase.storage_operations import delete_images_create_report, create_signed_report_url
+from supabase.db_operations import update_job_status
 
 # ---------------- Redis ----------------
 r = Redis(
@@ -35,6 +37,8 @@ while True:
     results = []
     batch_images = []
 
+    update_job_status(job_id=task['job_id'],status= 'PROCESSING')
+    
     # -------- Load Manifest --------
     manifest_bytes = (
         supabase.storage
@@ -48,7 +52,7 @@ while True:
     for relative_path in manifest["images"]:
         processed_img = image_prep.load_image(
             bucket=bucket,
-            file_path=relative_path
+            file_path=f"{input_prefix}{relative_path}"
         )
 
         batch_images.append(processed_img)
@@ -67,38 +71,20 @@ while True:
     # -------- Create PDF --------
     pdf_path = pdf_creator.create_pdf_report(
         results=results,
-        output_path="report.pdf"
+        output_path=task["report_filename"]
     )
 
-    # -------- Upload PDF --------
-    with open(pdf_path, "rb") as f:
-        supabase.storage.from_(bucket).upload(
-            path=f"{report_prefix}/report.pdf",
-            file=f,
-            file_options={"content-type": "application/pdf"}
-        )
+    
+
+    # -------- Delete images and upload docs --------
+    
+    report_path = delete_images_create_report(bucket= bucket, input_prefix= input_prefix,report_prefix=report_prefix, report_filename= task['report_filename'])
 
     # -------- Generate Signed URL --------
-    signed_url = (
-        supabase.storage
-        .from_(bucket)
-        .create_signed_url(
-            path=f"{report_prefix}/report.pdf",
-            expires_in=3600
-        )
-    )["signedURL"]
+    signed_url = create_signed_report_url(bucket=bucket,report_path= None)
 
-    # -------- Cleanup Input Files --------
-    files = (
-        supabase.storage
-        .from_(bucket)
-        .list(input_prefix)
-    )
-
-    file_paths = [f"{input_prefix}/{f['name']}" for f in files]
-
-    if file_paths:
-        supabase.storage.from_(bucket).remove(file_paths)
+    
+    update_job_status(job_id=task['job_id'],status= 'DONE', report_path= signed_url)
 
     # -------- Send Email --------
     email.send_report_email(

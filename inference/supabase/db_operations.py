@@ -78,3 +78,23 @@ def delete_job(job_id: str) -> None:
 
     except Exception as e:
         raise RuntimeError(f"[JOB DELETE FAILED] {str(e)}") from e
+
+
+# ---------------------------------
+# 4. Returning all job
+# ---------------------------------
+
+def returning_all_jobs(user_id: str):
+    response = (
+        supabase
+        .table("jobs")
+        .select("*")
+        .eq("user_id", user_id)
+        .execute()
+    )
+
+    if response.data:
+        raise Exception(response.data)
+
+    return response.data
+

@@ -1,9 +1,11 @@
 import os
 import resend
+from dotenv import load_dotenv
 
-
+load_dotenv()
 resend.api_key = os.getenv("RESEND_API_KEY")
 
+print(resend.api_key)
 
 def send_report_email(user_email: str, user_id: str, report_link: str):
     """
@@ -16,7 +18,7 @@ def send_report_email(user_email: str, user_id: str, report_link: str):
 
     try:
         resend.Emails.send({
-            "from": "AI Image Detection <no-reply@yourdomain.com>",
+            "from": "AI Image Detection <onboarding@resend.dev>",
             "to": [user_email],
             "subject": "Your AI Image Detection Report is Ready",
             "html": f"""

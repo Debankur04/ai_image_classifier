@@ -1,21 +1,18 @@
 from typing import Optional
-from supabase.supabase_init import supabase
+from supabase_client.supabase_init import supabase_admin
 
 
 # -----------------------------
 # 1. Insert a new job
 # -----------------------------
-def insert_job( user_id: str, status: str = "QUEUED") -> str:
-    """
-    Inserts a new job and returns job_id.
-    """
+def insert_job(user_id: str, status: str = "QUEUED") -> str:
     try:
         response = (
-            supabase
+            supabase_admin
             .table("jobs")
             .insert({
                 "user_id": user_id,
-                "status": status,
+                "status": status
             })
             .execute()
         )
@@ -32,10 +29,11 @@ def insert_job( user_id: str, status: str = "QUEUED") -> str:
 # ---------------------------------
 # 2. Update job status
 # ---------------------------------
-def update_job_status( job_id: str, status: str, report_path: Optional[str] = None) -> None:
-    """
-    Updates job status and optional report path.
-    """
+def update_job_status(
+    job_id: str,
+    status: str,
+    report_path: Optional[str] = None
+) -> None:
     try:
         payload = {"status": status}
 
@@ -43,7 +41,7 @@ def update_job_status( job_id: str, status: str, report_path: Optional[str] = No
             payload["report_path"] = report_path
 
         response = (
-            supabase
+            supabase_admin
             .table("jobs")
             .update(payload)
             .eq("job_id", job_id)
@@ -61,12 +59,9 @@ def update_job_status( job_id: str, status: str, report_path: Optional[str] = No
 # 3. Delete a job
 # ---------------------------------
 def delete_job(job_id: str) -> None:
-    """
-    Deletes a job by job_id.
-    """
     try:
         response = (
-            supabase
+            supabase_admin
             .table("jobs")
             .delete()
             .eq("job_id", job_id)
@@ -81,20 +76,20 @@ def delete_job(job_id: str) -> None:
 
 
 # ---------------------------------
-# 4. Returning all job
+# 4. Return all jobs for a user
 # ---------------------------------
-
 def returning_all_jobs(user_id: str):
-    response = (
-        supabase
-        .table("jobs")
-        .select("*")
-        .eq("user_id", user_id)
-        .execute()
-    )
+    try:
+        response = (
+            supabase_admin
+            .table("jobs")
+            .select("*")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .execute()
+        )
 
-    if response.data:
-        raise Exception(response.data)
+        return response.data or []
 
-    return response.data
-
+    except Exception as e:
+        raise RuntimeError(f"[FETCH JOBS FAILED] {str(e)}") from e

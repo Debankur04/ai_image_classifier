@@ -1,5 +1,5 @@
 import tensorflow as tf
-from supabase.supabase_init import supabase
+from inference.supabase_client.supabase_init import supabase_admin
 
 IMG_SIZE = (224, 224)
 
@@ -11,7 +11,7 @@ def load_image(bucket_name: str, file_path: str):
 
     # Download image bytes from Supabase
     image_bytes = (
-        supabase
+        supabase_admin
         .storage
         .from_(bucket_name)
         .download(file_path)
@@ -29,3 +29,4 @@ def load_image(bucket_name: str, file_path: str):
     image = tf.cast(image, tf.float32) / 255.0
 
     return image
+

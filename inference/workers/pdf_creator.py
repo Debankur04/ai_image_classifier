@@ -101,7 +101,7 @@ def create_pdf_report(results, output_path="report.pdf"):
     elements.append(Spacer(1, 12))
 
     for idx, r in enumerate(results, start=1):
-        img = tensor_to_rl_image(r["image"])
+        img = tensor_to_rl_image(r["image_tensor"])
 
         info = Paragraph(
             f"""

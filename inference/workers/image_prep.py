@@ -1,5 +1,5 @@
 import tensorflow as tf
-from inference.supabase_client.supabase_init import supabase_admin
+from supabase_client.supabase_init import supabase_admin
 
 IMG_SIZE = (224, 224)
 

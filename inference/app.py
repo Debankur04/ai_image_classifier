@@ -11,7 +11,7 @@ from datetime import datetime
 import json
 
 from redis import Redis
-
+from fastapi.middleware.cors import CORSMiddleware
 from supabase_client.supabase_init import supabase_public
 from supabase_client.auth import signup, signin, signout
 from supabase_client.storage_operations import upload_images_and_manifest, create_signed_report_url
@@ -27,6 +27,14 @@ from workers.worker import run_worker
 app = FastAPI(
     title="AI Image Detection API",
     version="1.0.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # ---------------- Redis ----------------
